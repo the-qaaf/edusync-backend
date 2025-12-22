@@ -94,7 +94,7 @@ app.get('/', (req, res) => {
 
 // --- WhatsApp Integration Configuration ---
 
-const WA_API_URL = `https://graph.facebook.com/v18.0`;
+const WA_API_URL = `https://graph.facebook.com/v24.0`;
 
 /**
  * Template Registry
@@ -173,40 +173,6 @@ const normalizeRecipients = (to) => {
   return [to];
 };
 
-// Helper to send Template Message
-const sendWhatsAppTemplateMessage = async (to, templateName, languageCode = "en_US", components = []) => {
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-
-  const payload = {
-    messaging_product: "whatsapp",
-    to: to,
-    type: "template",
-    template: {
-      name: templateName,
-      language: { code: languageCode },
-      components: components
-    }
-  };
-
-  try {
-    const response = await axios.post(
-      `${WA_API_URL}/${phoneId}/messages`,
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    console.log(`Template sent to ${to} success:`, JSON.stringify(response.data));
-    return { success: true, data: response.data };
-  } catch (error) {
-    console.error("Template Send Failed:", error.response?.data || error.message);
-    throw error;
-  }
-};
 
 app.post('/api/whatsapp/notify', async (req, res) => {
   const { to, type, data } = req.body;
@@ -220,7 +186,7 @@ app.post('/api/whatsapp/notify', async (req, res) => {
 
   // Helper to format phone numbers (default to India +91 if 10 digits)
   const formatPhoneNumber = (phone) => {
-    const cleaned = phone.replace(/\D/g, '');
+    const cleaned = phone?.replace(/\D/g, '');
     if (cleaned.length === 10) {
       return `91${cleaned}`;
     }
@@ -231,13 +197,6 @@ app.post('/api/whatsapp/notify', async (req, res) => {
   await Promise.all(recipients.map(async (rawRecipient) => {
     const recipient = formatPhoneNumber(rawRecipient);
     try {
-      // DEBUG: If type is specifically TEST_CONNECTION, send hello_world template
-      if (type === "TEST_CONNECTION") {
-        await sendWhatsAppTemplateMessage(recipient, "hello_world");
-        results.success.push(recipient);
-        return;
-      }
-
       // Formatting logic for Direct Message (Text Fallback)
       let messageBody = "";
       if (type === "HOLIDAY_ALERT") {
@@ -276,6 +235,7 @@ app.post('/api/whatsapp/notify', async (req, res) => {
 
 // --- Webhook Verification (GET) ---
 app.get('/api/webhook', (req, res) => {
+  console.log("🚀 ~ req:", req)
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
@@ -299,41 +259,54 @@ app.get('/api/webhook', (req, res) => {
 app.post('/api/webhook', async (req, res) => {
   const body = req.body;
 
-  console.log('Webhook payload received:', JSON.stringify(req.body, null, 2));
+  console.log(`\n=== 📨 Incoming Webhook: ${new Date().toISOString()} ===`);
+  console.log('Payload:', JSON.stringify(body, null, 2));
 
+  // Check if this is an event from a WhatsApp API
   if (body.object) {
-    if (body.entry && body.entry[0].changes && body.entry[0].changes[0]) {
-      const value = body.entry[0].changes[0].value;
+    // Return a '200 OK' response to all requests immediately to verify receipt
+    // This prevents the webhook from timing out if processing takes too long
+    res.sendStatus(200);
 
-      // Handle Status Updates (Sent, Delivered, Read)
-      if (value.statuses && value.statuses[0]) {
-        const status = value.statuses[0];
-        console.log(`[Status Update] ${status.status.toUpperCase()} for ${status.recipient_id}`);
-      }
+    try {
+      if (body.entry && body.entry[0].changes && body.entry[0].changes[0]) {
+        const value = body.entry[0].changes[0].value;
 
-      // Handle Incoming Messages
-      else if (value.messages && value.messages[0]) {
-        const phone_number_id = value.metadata.phone_number_id;
-        const from = value.messages[0].from;
-        const msg_body = value.messages[0].text ? value.messages[0].text.body : '[Media/Other]';
+        // Handle Status Updates (Sent, Delivered, Read)
+        if (value.statuses && value.statuses[0]) {
+          const status = value.statuses[0];
+          console.log(`[Status Update] ${status.status.toUpperCase()} for ${status.recipient_id}`);
+        }
 
-        console.log(`[Incoming Message] From ${from}: ${msg_body}`);
+        // Handle Incoming Messages
+        else if (value.messages && value.messages[0]) {
+          const phone_number_id = value.metadata.phone_number_id;
+          const from = value.messages[0].from;
+          const msg_body = value.messages[0].text ? value.messages[0].text.body : '[Media/Other]';
 
-        // Basic auto-reply logic (Handle for incoming message)
-        try {
-          const autoReplyText = `👋 *Hello from EduSync!*\n\nThank you for reaching out. We have received your message: _"${msg_body}"_\n\nA member of our team will assist you shortly.\n\n🏫 *Looking for Student Info?*\nVisit our Parent Portal for real-time updates:\n ${process.env.FRONTEND_URL}\n\n_This is an automated response._`;
+          console.log(`[Incoming Message] From ${from}: ${msg_body}`);
 
-          // Only reply if it's a text message to avoid loops with status updates (though status updates are handled above)
-          if (value.messages[0].text) {
-            await sendWhatsAppTextMessage(from, autoReplyText);
-          }
-        } catch (e) {
-          console.error("Failed to send auto-reply");
+          // Basic auto-reply logic (Handle for incoming message)
+          // We wrap this in an async IIFE or just call it to not block the function context relevant to response (though response is already sent)
+          (async () => {
+            try {
+              const autoReplyText = `👋 *Hello from EduSync!*\n\nThank you for reaching out. We have received your message: _"${msg_body}"_\n\nA member of our team will assist you shortly.\n\n🏫 *Looking for Student Info?*\nVisit our Parent Portal for real-time updates:\n ${process.env.FRONTEND_URL || 'https://edusync.com'}\n\n_This is an automated response._`;
+
+              // Only reply if it's a text message to avoid loops with status updates
+              if (value.messages[0].text) {
+                await sendWhatsAppTextMessage(from, autoReplyText);
+              }
+            } catch (e) {
+              console.error("Failed to send auto-reply:", e.message);
+            }
+          })();
         }
       }
+    } catch (err) {
+      console.error("Error processing webhook payload:", err);
     }
-    res.sendStatus(200);
   } else {
+    // Return a '404 Not Found' if event is not from a WhatsApp API
     res.sendStatus(404);
   }
 });
