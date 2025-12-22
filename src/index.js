@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import webhookRoutes from './routes/webhook.routes.js';
 import emailRoutes from './routes/email.routes.js';
+import whatsappRoutes from './routes/whatsapp.routes.js';
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ app.use(express.json());
 // Routes
 app.use('/api', webhookRoutes);
 app.use('/api', emailRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

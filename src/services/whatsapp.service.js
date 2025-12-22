@@ -82,3 +82,53 @@ export const sendWhatsAppMessage = async (to, text, buttons = []) => {
     return { success: false, error: msg };
   }
 };
+
+/**
+ * Send WhatsApp messages in batches to avoid rate limits and Vercel timeouts.
+ * Best used for broadcasts (100 - 5000 users).
+ * @param {Array<{phone: string, params: any}>} recipients
+ * @param {string} text
+ * @param {Array} buttons
+ */
+export const sendBatchWhatsAppMessage = async (recipients, text, buttons = []) => {
+  const CHUNK_SIZE = 50; // Process 50 messages in parallel
+  const DELAY_MS = 1000; // Wait 1s between chunks to be safe with rate limits
+
+  const results = { success: 0, failed: 0, errors: [] };
+
+  // Helper to wait
+  const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // split into chunks
+  for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
+    const chunk = recipients.slice(i, i + CHUNK_SIZE);
+
+    // Execute chunk in parallel
+    const promises = chunk.map(async (r) => {
+      try {
+        const phone = typeof r === 'string' ? r : r.phone;
+        const res = await sendWhatsAppMessage(phone, text, buttons);
+        if (res.success) results.success++;
+        else {
+          results.failed++;
+          results.errors.push({ phone: phone, error: res.error });
+        }
+      } catch (e) {
+        results.failed++;
+        try {
+          const phone = typeof r === 'string' ? r : r?.phone || 'unknown';
+          results.errors.push({ phone: phone, error: e.message });
+        } catch (e2) { }
+      }
+    });
+
+    await Promise.all(promises);
+
+    // Tiny delay between chunks to let event loop breathe and respect API limits
+    if (i + CHUNK_SIZE < recipients.length) {
+      await wait(DELAY_MS);
+    }
+  }
+
+  return results;
+};
