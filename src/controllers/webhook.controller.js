@@ -26,23 +26,27 @@ export const verifyWebhook = (req, res) => {
  * Handle Incoming Messages (POST)
  */
 export const handleIncomingMessage = async (req, res) => {
-  res.sendStatus(200);
-
-  const body = req.body;
-  if (!body.object) return;
-
-  const entry = body.entry?.[0];
-  const changes = entry?.changes?.[0];
-  const value = changes?.value;
-  const message = value?.messages?.[0];
-
-  if (!message) return;
-
-  const from = message.from;
-  const type = message.type;
-  const phone = normalizePhoneNumber(from);
 
   try {
+    const body = req.body;
+    if (!body.object) {
+      return res.sendStatus(404);
+    }
+
+    const entry = body.entry?.[0];
+    const changes = entry?.changes?.[0];
+    const value = changes?.value;
+    const message = value?.messages?.[0];
+
+    if (!message) {
+      // No message found (status update or other event), just acknowledge
+      return res.sendStatus(200);
+    }
+
+    const from = message.from;
+    const type = message.type;
+    const phone = normalizePhoneNumber(from);
+
     // 1. Identify Students
     const students = await firebaseService.findStudentsByPhone(phone);
 
@@ -51,7 +55,7 @@ export const handleIncomingMessage = async (req, res) => {
         phone,
         "We could not find any student details associated with this number. Please check with your school administrator."
       );
-      return;
+      return res.sendStatus(200);
     }
 
     // 2. Determine Action/Command
@@ -74,8 +78,6 @@ export const handleIncomingMessage = async (req, res) => {
       }
     } else if (type === 'interactive') {
       const replyId = message.interactive.button_reply?.id;
-      // Note: CTA URL clicks do NOT trigger a webhook event like this usually,
-      // they just open the browser. But if we had list messages etc:
       if (replyId) {
         // Payload format convention: "CMD:DATA"
         if (replyId.startsWith("SELECT_STUDENT:")) {
@@ -105,7 +107,7 @@ export const handleIncomingMessage = async (req, res) => {
       } else {
         await sendStudentSelectionMenu(phone, students);
       }
-      return;
+      return res.sendStatus(200);
     }
 
     if (command === "SELECT_STUDENT") {
@@ -117,7 +119,7 @@ export const handleIncomingMessage = async (req, res) => {
       } else {
         await whatsappService.sendWhatsAppMessage(phone, "🚫 Invalid selection. Please try again.");
       }
-      return;
+      return res.sendStatus(200);
     }
 
     // Ensure we have an active student for context-aware commands
@@ -128,7 +130,7 @@ export const handleIncomingMessage = async (req, res) => {
 
     if (!activeStudent && students.length > 1) {
       await sendStudentSelectionMenu(phone, students);
-      return;
+      return res.sendStatus(200);
     }
 
     // --- Feature Execution ---
@@ -178,8 +180,13 @@ export const handleIncomingMessage = async (req, res) => {
         break;
     }
 
+    // Final Success Response
+    res.sendStatus(200);
+
   } catch (error) {
     console.error("Webhook Controller Error:", error);
+    // Even if error, send 200 to WhatsApp to stop retries (unless you want retries)
+    res.sendStatus(200);
   }
 };
 
