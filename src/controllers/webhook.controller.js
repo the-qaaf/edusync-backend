@@ -1,7 +1,9 @@
 
 import { normalizePhoneNumber } from '../utils/phone.util.js';
 import { formatHtmlToWhatsApp } from '../utils/format.util.js';
-import * as firebaseService from '../services/firebase.service.js';
+import * as studentsService from '../services/students.service.js';
+import * as dailyUpdatesService from '../services/daily-updates.service.js';
+import * as broadcastService from '../services/broadcast.service.js';
 import * as whatsappService from '../services/whatsapp.service.js';
 import * as sessionService from '../services/session.service.js';
 
@@ -43,12 +45,15 @@ export const handleIncomingMessage = async (req, res) => {
       return res.sendStatus(200);
     }
 
+    // Mark as Read immediately to give user feedback
+    await whatsappService.markMessageAsRead(message.id);
+
     const from = message.from;
     const type = message.type;
     const phone = normalizePhoneNumber(from);
 
     // 1. Identify Students
-    const students = await firebaseService.findStudentsByPhone(phone);
+    const students = await studentsService.findStudentsByPhone(phone);
 
     if (students.length === 0) {
       await whatsappService.sendWhatsAppMessage(
@@ -218,7 +223,7 @@ const sendMainMenu = async (phone, student) => {
 };
 
 const handleHomeworkFlow = async (phone, user) => {
-  const homeworks = await firebaseService.getHomework(
+  const homeworks = await dailyUpdatesService.getHomework(
     user.schoolId,
     user.classGrade,
     user.section
@@ -227,7 +232,8 @@ const handleHomeworkFlow = async (phone, user) => {
   if (!homeworks || homeworks.length === 0) {
     await whatsappService.sendWhatsAppMessage(
       phone,
-      `📝 *Homework (${user.classGrade}-${user.section})*\n🏫 ${user.schoolName}\n\n🎉 No pending homework! Enjoy your day.`
+      `📝 *Homework (${user.classGrade}-${user.section})*\n🏫 ${user.schoolName}\n\n🎉 No pending homework! Enjoy your day.`,
+      [{ id: "START", label: "🏠 Main Menu" }]
     );
     return;
   }
@@ -249,16 +255,19 @@ const handleHomeworkFlow = async (phone, user) => {
     msg += `\n🗓 Due: ${new Date(hw.date).toLocaleDateString()}`;
   });
 
+  msg += `\n\n_Reply 'Menu' for more options_`;
+
   await whatsappService.sendWhatsAppMessage(phone, msg);
 };
 
 const handleUpdatesFlow = async (phone, user) => {
-  const updates = await firebaseService.getAnnouncements(user.schoolId);
+  const updates = await broadcastService.getAnnouncements(user.schoolId);
 
   if (!updates || updates.length === 0) {
     await whatsappService.sendWhatsAppMessage(
       phone,
-      `🔔 *School Updates*\n🏫 ${user.schoolName}\n\nAll caught up! No new announcements.`
+      `🔔 *School Updates*\n🏫 ${user.schoolName}\n\nAll caught up! No new announcements.`,
+      [{ id: "START", label: "🏠 Main Menu" }]
     );
     return;
   }
@@ -270,6 +279,8 @@ const handleUpdatesFlow = async (phone, user) => {
     msg += `\n-----------------------------\n`;
     msg += `📢 *${u.title || 'Announcement'}*\n\n${body}\n\n🕒 ${new Date(u.date).toLocaleDateString()}`;
   });
+
+  msg += `\n\n_Reply 'Menu' for more options_`;
 
   await whatsappService.sendWhatsAppMessage(phone, msg);
 };

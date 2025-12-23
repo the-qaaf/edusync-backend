@@ -132,3 +132,20 @@ export const sendBatchWhatsAppMessage = async (recipients, text, buttons = []) =
 
   return results;
 };
+
+/**
+ * Mark a message as read (Blue Ticks).
+ */
+export const markMessageAsRead = async (messageId) => {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!token || !phoneId) return;
+
+  try {
+    await axios.post(
+      `${WA_API_URL}/${phoneId}/messages`,
+      { messaging_product: "whatsapp", status: "read", message_id: messageId },
+      { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+    );
+  } catch (e) { console.error("Failed to mark read", e.message); }
+};
