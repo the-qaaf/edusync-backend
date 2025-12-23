@@ -223,22 +223,26 @@ const sendMainMenu = async (phone, student) => {
 };
 
 const handleHomeworkFlow = async (phone, user) => {
+  // Use today's date (YYYY-MM-DD)
+  const today = new Date().toISOString().split('T')[0];
+
   const homeworks = await dailyUpdatesService.getHomework(
     user.schoolId,
     user.classGrade,
-    user.section
+    user.section,
+    today
   );
 
   if (!homeworks || homeworks.length === 0) {
     await whatsappService.sendWhatsAppMessage(
       phone,
-      `📝 *Homework (${user.classGrade}-${user.section})*\n🏫 ${user.schoolName}\n\n🎉 No pending homework! Enjoy your day.`,
+      `📝 *Homework (${user.classGrade}-${user.section})*\n🏫 ${user.schoolName}\n\n🎉 No homework assigned today! Enjoy your day.`,
       [{ id: "START", label: "🏠 Main Menu" }]
     );
     return;
   }
 
-  let msg = `📝 *Homework for ${user.studentName}*\n🏫 *${user.schoolName}*\n`;
+  let msg = `📝 *Homework for Today (${today})*\n🏫 *${user.schoolName}*\n`;
 
   homeworks.forEach(hw => {
     const subject = hw.subject || "General";
@@ -252,7 +256,7 @@ const handleHomeworkFlow = async (phone, user) => {
     if (notes) {
       msg += `\n💡 *Notes:* \n_${notes}_\n`;
     }
-    msg += `\n🗓 Due: ${new Date(hw.date).toLocaleDateString()}`;
+    // msg += `\n🗓 Due: ${new Date(hw.date).toLocaleDateString()}`; // Date is implicit now
   });
 
   msg += `\n\n_Reply 'Menu' for more options_`;
@@ -261,18 +265,19 @@ const handleHomeworkFlow = async (phone, user) => {
 };
 
 const handleUpdatesFlow = async (phone, user) => {
-  const updates = await broadcastService.getAnnouncements(user.schoolId);
+  const today = new Date().toISOString().split('T')[0];
+  const updates = await broadcastService.getAnnouncements(user.schoolId, today);
 
   if (!updates || updates.length === 0) {
     await whatsappService.sendWhatsAppMessage(
       phone,
-      `🔔 *School Updates*\n🏫 ${user.schoolName}\n\nAll caught up! No new announcements.`,
+      `🔔 *School Updates*\n🏫 ${user.schoolName}\n\nAll caught up! No announcements today.`,
       [{ id: "START", label: "🏠 Main Menu" }]
     );
     return;
   }
 
-  let msg = `🔔 *Latest Updates*\n🏫 *${user.schoolName}*\n`;
+  let msg = `🔔 *Updates for Today*\n🏫 *${user.schoolName}*\n`;
 
   updates.forEach(u => {
     const body = formatHtmlToWhatsApp(u.message);
