@@ -70,6 +70,7 @@ export const getOrFetch = async (key, fetcher, ttl = 300) => {
 };
 
 // Export clients if needed elsewhere
+export { redisClient };
 export const cache = redisClient || memoryCache;
 
 export const invalidateCache = async (key) => {

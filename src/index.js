@@ -11,6 +11,7 @@ import studentsRoutes from './routes/students.routes.js';
 import broadcastRoutes from './routes/broadcast.routes.js';
 import dailyUpdatesRoutes from './routes/daily-updates.routes.js';
 import reportsRoutes from './routes/reports.routes.js';
+import aiTutorRoutes from './routes/ai-tutor.routes.js';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use('/api/students', studentsRoutes);
 app.use('/api/broadcast', broadcastRoutes);
 app.use('/api/daily-updates', dailyUpdatesRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/ai-tutor', aiTutorRoutes);
 
 // Health Check
 app.get('/', (req, res) => {
