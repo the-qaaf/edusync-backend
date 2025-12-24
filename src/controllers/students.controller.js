@@ -30,7 +30,7 @@ export const getStudents = async (req, res) => {
     let studentsRef = db.collection('tenants').doc(schoolId).collection('students');
     let q = studentsRef;
 
-    if (classGrade) q = q.where('class', '==', classGrade);
+    if (classGrade) q = q.where('class', '==', `Class ${classGrade}`);
     if (section) q = q.where('section', '==', section);
 
     // Search logic in Firestore is limited to prefix match usually
