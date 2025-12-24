@@ -107,7 +107,8 @@ export const sendBatchWhatsAppMessage = async (recipients, text, buttons = []) =
     const promises = chunk.map(async (r) => {
       try {
         const phone = typeof r === 'string' ? r : r.phone;
-        const res = await sendWhatsAppMessage(phone, text, buttons);
+        const message = (typeof r === 'object' && r.text) ? r.text : text;
+        const res = await sendWhatsAppMessage(phone, message, buttons);
         if (res.success) results.success++;
         else {
           results.failed++;
