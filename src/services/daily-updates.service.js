@@ -30,7 +30,7 @@ export const getHomework = async (schoolId, classGrade, section, date = null) =>
         const snapshot = await q.get();
         const all = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
 
-        let filtered = all.filter(d => d.homework);
+        let filtered = all.filter(d => d.homework || d.type === 'remark');
 
         if (date) {
           // Robust Date Comparison (YYYY-MM-DD)
@@ -42,14 +42,14 @@ export const getHomework = async (schoolId, classGrade, section, date = null) =>
           });
         }
 
-        return filtered.slice(0, 5);
+        return filtered.slice(0, 10); // increased limit slightly to accommodate remarks
 
       } catch (e) {
         console.warn("Query failed (likely index), falling back to client-sort", e.message);
         const fallback = await updatesRef.limit(50).get();
         let docs = fallback.docs
           .map(d => d.data())
-          .filter(d => d.classGrade === String(classGrade) && d.section === String(section) && d.homework);
+          .filter(d => d.classGrade === String(classGrade) && d.section === String(section) && (d.homework || d.type === 'remark'));
 
         if (date) {
           docs = docs.filter(d => {
@@ -59,7 +59,7 @@ export const getHomework = async (schoolId, classGrade, section, date = null) =>
           });
         }
 
-        return docs.sort((a, b) => b.date > a.date ? 1 : -1).slice(0, 5);
+        return docs.sort((a, b) => b.date > a.date ? 1 : -1).slice(0, 10);
       }
 
     } catch (error) {

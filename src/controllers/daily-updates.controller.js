@@ -9,7 +9,13 @@ export const getDailyUpdates = async (req, res) => {
     const limitCount = parseInt(limitQuery) || 20;
 
     const updatesRef = db.collection('tenants').doc(schoolId).collection('daily_updates');
-    const q = updatesRef.orderBy('date', 'desc').limit(limitCount);
+    let q = updatesRef.orderBy('date', 'desc');
+
+    if (req.query.studentId) {
+      q = q.where('studentId', '==', req.query.studentId);
+    }
+
+    q = q.limit(limitCount);
     const snapshot = await q.get();
 
     const updates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));

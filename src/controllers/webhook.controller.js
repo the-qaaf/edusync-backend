@@ -74,6 +74,12 @@ export const handleIncomingMessage = async (req, res) => {
       if (['hi', 'hello', 'start', 'menu', 'restart', 'hey'].includes(text)) {
         command = "START";
       }
+
+      // Explicit Homework/Remark request
+      else if (['homework', 'hw', 'remark', 'remarks', 'diary'].includes(text)) {
+        command = "HOMEWORK";
+      }
+
       // AI Tutor / Learning Query Detection
       else if (['tutor', 'ai', 'study', 'explain', 'question', 'doubt'].some(k => text.includes(k))) {
         command = "AI_TUTOR_QUERY";
@@ -233,18 +239,34 @@ const handleHomeworkFlow = async (phone, user) => {
     today
   );
 
-  if (!homeworks || homeworks.length === 0) {
+  // Filter out remarks not meant for this student
+  const relevantItems = homeworks.filter(hw => {
+    if (hw.type === 'remark') {
+      return hw.studentId === user.studentId;
+    }
+    return true; // Include all homeworks
+  });
+
+  if (relevantItems.length === 0) {
     await whatsappService.sendWhatsAppMessage(
       phone,
-      `📝 *Homework (${user.classGrade}-${user.section})*\n🏫 ${user.schoolName}\n\n🎉 No homework assigned today! Enjoy your day.`,
+      `📝 *Homework (${user.classGrade}-${user.section})*\n🏫 ${user.schoolName}\n\n🎉 No homework or remarks for you today!`,
       [{ id: "START", label: "🏠 Main Menu" }]
     );
     return;
   }
 
-  let msg = `📝 *Homework for Today (${today})*\n🏫 *${user.schoolName}*\n`;
+  let msg = `📝 *Homework & Remarks (${today})*\n🏫 *${user.schoolName}*\n`;
 
-  homeworks.forEach(hw => {
+  relevantItems.forEach(hw => {
+    if (hw.type === 'remark') {
+      const note = hw.notes ? formatHtmlToWhatsApp(hw.notes) : "";
+      msg += `\n-----------------------------\n`; // Separator
+      msg += `💬 *Teacher Remark*`;
+      msg += `\n${note}\n`;
+      return;
+    }
+
     const subject = hw.subject || "General";
     const desc = formatHtmlToWhatsApp(hw.homework);
     const notes = hw.notes ? formatHtmlToWhatsApp(hw.notes) : "";

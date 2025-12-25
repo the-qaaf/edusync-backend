@@ -131,3 +131,21 @@ export const batchAddStudents = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
+export const deleteStudent = async (req, res) => {
+  try {
+    const { schoolId, studentId } = req.query;
+    if (!schoolId || !studentId) return res.status(400).json({ error: "Missing schoolId or studentId" });
+
+    await db.collection('tenants').doc(schoolId).collection('students').doc(studentId).delete();
+
+    // Invalidate Caches
+    await invalidateCache(`parent_contacts:${schoolId}`);
+    await invalidateCache(`dashboard:${schoolId}`);
+
+    res.status(200).json({ message: "Student deleted" });
+  } catch (error) {
+    console.error("Error deleting student:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
