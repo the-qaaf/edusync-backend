@@ -21,7 +21,7 @@ Do not burden the student with technical details about your underlying systems. 
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash-exp",
+    model: "gemini-2.0-flash-001",
     systemInstruction: SYSTEM_PROMPT,
     generationConfig: {
         maxOutputTokens: 1500,
@@ -51,12 +51,7 @@ const model = genAI.getGenerativeModel({
     ],
     tools: [
         {
-            googleSearchRetrieval: {
-                dynamicRetrievalConfig: {
-                    mode: "DYNAMIC",
-                    dynamicThreshold: 0.3,
-                },
-            },
+            googleSearch: {},
         },
     ],
 });
