@@ -37,14 +37,14 @@ export const sendBatchEmail = async (req, res) => {
  */
 export const sendBatchWhatsApp = async (req, res) => {
   try {
-    const { to, text, type, data } = req.body; // 'to' is array of objects { phone, ... } or strings
+    const { to, text, templateName, language, components, buttons } = req.body; // 'to' is array of objects { phone, ... } or strings
 
     if (!to || !Array.isArray(to) || to.length === 0) {
       return res.status(400).json({ success: false, error: "Invalid recipients list" });
     }
 
-    if (!text) {
-      return res.status(400).json({ success: false, error: "Missing message text" });
+    if (!text && !templateName) {
+      return res.status(400).json({ success: false, error: "Missing message text or template name" });
     }
 
     console.log(`[Batch Controller] Starting WhatsApp broadcast to ${to.length} recipients.`);
@@ -53,11 +53,15 @@ export const sendBatchWhatsApp = async (req, res) => {
     // Service expects array of objects or strings, but best to be consistent.
     // If frontend sends full contact objects, we extract or pass through.
 
-    let buttons = [];
-    // Optional: Add logic here to generate dynamic buttons based on 'type' if you want backend to handle template logic reusing webhook logic.
-    // For now, we assume simple text notifications.
+    const options = {
+      text,
+      buttons: buttons || [],
+      templateName,
+      language,
+      components
+    };
 
-    const result = await whatsappService.sendBatchWhatsAppMessage(to, text, buttons);
+    const result = await whatsappService.sendBatchWhatsAppMessage(to, options);
 
     res.status(200).json({
       success: true,

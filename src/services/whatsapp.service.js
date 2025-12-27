@@ -84,31 +84,81 @@ export const sendWhatsAppMessage = async (to, text, buttons = []) => {
 };
 
 /**
- * Send WhatsApp messages in batches to avoid rate limits and Vercel timeouts.
- * Best used for broadcasts (100 - 5000 users).
- * @param {Array<{phone: string, params: any}>} recipients
- * @param {string} text
- * @param {Array} buttons
+ * Sends a TEMPLATE message via WhatsApp Cloud API (Utility/Marketing).
+ * @param {string} to - Recipient phone number
+ * @param {string} templateName - Name of the template in Meta Business Manager
+ * @param {string} languageCode - Language code (e.g., 'en_US')
+ * @param {Array} components - Template variable components (header, body, buttons)
  */
-export const sendBatchWhatsAppMessage = async (recipients, text, buttons = []) => {
-  const CHUNK_SIZE = 50; // Process 50 messages in parallel
-  const DELAY_MS = 1000; // Wait 1s between chunks to be safe with rate limits
+export const sendTemplateMessage = async (to, templateName, languageCode = "en_US", components = []) => {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+  if (!token || !phoneId) {
+    return { success: false, error: "Missing WhatsApp Credentials" };
+  }
+
+  const payload = {
+    messaging_product: "whatsapp",
+    to: to,
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: languageCode },
+      components: components
+    }
+  };
+
+  try {
+    const response = await axios.post(
+      `${WA_API_URL}/${phoneId}/messages`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    const msg = error.response?.data || error.message;
+    console.error("WhatsApp Template Send Log:", JSON.stringify(msg, null, 2));
+    return { success: false, error: msg };
+  }
+};
+
+/**
+ * Send WhatsApp messages in batches (Text or Template).
+ * @param {Array} recipients - Array of strings (phones) or objects { phone, params, components }
+ * @param {Object} options - { text, buttons, templateName, language, components }
+ */
+export const sendBatchWhatsAppMessage = async (recipients, options = {}) => {
+  const CHUNK_SIZE = 50;
+  const DELAY_MS = 1000;
 
   const results = { success: 0, failed: 0, errors: [] };
-
-  // Helper to wait
   const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  // split into chunks
   for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
     const chunk = recipients.slice(i, i + CHUNK_SIZE);
 
-    // Execute chunk in parallel
     const promises = chunk.map(async (r) => {
       try {
         const phone = typeof r === 'string' ? r : r.phone;
-        const message = (typeof r === 'object' && r.text) ? r.text : text;
-        const res = await sendWhatsAppMessage(phone, message, buttons);
+        let res;
+
+        // Determine if Template or Text
+        if (options.templateName) {
+          // Allow per-recipient component overrides (e.g. name variables)
+          const components = (typeof r === 'object' && r.components) ? r.components : (options.components || []);
+          res = await sendTemplateMessage(phone, options.templateName, options.language, components);
+        } else {
+          // Fallback to Text
+          const message = (typeof r === 'object' && r.text) ? r.text : options.text;
+          res = await sendWhatsAppMessage(phone, message, options.buttons);
+        }
+
         if (res.success) results.success++;
         else {
           results.failed++;
@@ -125,7 +175,6 @@ export const sendBatchWhatsAppMessage = async (recipients, text, buttons = []) =
 
     await Promise.all(promises);
 
-    // Tiny delay between chunks to let event loop breathe and respect API limits
     if (i + CHUNK_SIZE < recipients.length) {
       await wait(DELAY_MS);
     }

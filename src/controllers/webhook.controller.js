@@ -58,7 +58,7 @@ export const handleIncomingMessage = async (req, res) => {
     if (students.length === 0) {
       await whatsappService.sendWhatsAppMessage(
         phone,
-        "We could not find any student details associated with this number. Please check with your school administrator."
+        "🚫 *Account Not Found*\n\nWe could not find any student linked to this number.\nPlease contact your school administrator to update your contact details."
       );
       return res.sendStatus(200);
     }
@@ -161,7 +161,7 @@ export const handleIncomingMessage = async (req, res) => {
 
         await whatsappService.sendWhatsAppMessage(
           phone,
-          `🤖 *${activeStudent.schoolName} AI Tutor*\n\nHey! I see you have a question. Our AI Tutor is ready to help 24/7!\n\nIt knows your class syllabus and can explain any topic instantly. Give it a try!`,
+          `🤖 *AI Tutor Assistant*\n🏫 *${activeStudent.schoolName}*\n\nHello! I noticed you have a question. Our AI Tutor is available 24/7 to help.\n\nIt understands the curriculum and can explain any topic instantly.`,
           [
             { type: "url", label: "Start Learning", url: aiLink }
           ]
@@ -171,13 +171,13 @@ export const handleIncomingMessage = async (req, res) => {
       case "HELP":
         await whatsappService.sendWhatsAppMessage(
           phone,
-          `🤝 *Support*\n\nNeed assistance? Contact the school administration directly or email us at support@edusync.com.`
+          `🤝 *Support & Assistance*\n\nNeed help? You can contact the school administration directly or reach out to our support team.\n\n📧 *Email:* support@edusync.com`
         );
         break;
 
       case "UNKNOWN":
         // Cool fallback
-        await whatsappService.sendWhatsAppMessage(phone, "🤖 missed that! I'm best at showing Homework, Updates, or connecting you to the AI Tutor. Tap a button below to get back on track!", [
+        await whatsappService.sendWhatsAppMessage(phone, "🤖 *I didn't catch that*\n\nI can help you with Homework, Updates, or connect you to the AI Tutor.\n\n*Please select an option below:*", [
           { id: "START", label: "🏠 Main Menu" },
           { id: "UPDATES", label: "🔔 Latest Updates" }
         ]);
@@ -185,7 +185,7 @@ export const handleIncomingMessage = async (req, res) => {
 
       default:
         // Generic fallback
-        await whatsappService.sendWhatsAppMessage(phone, "🤷‍♂️ I didn't quite catch that. Try one of the options below:", [
+        await whatsappService.sendWhatsAppMessage(phone, "🤷‍♂️ *Command Not Recognized*\n\nPlease try one of the options below:", [
           { id: "START", label: "🏠 Home" }
         ]);
         break;
@@ -211,13 +211,13 @@ const sendStudentSelectionMenu = async (phone, students) => {
 
   await whatsappService.sendWhatsAppMessage(
     phone,
-    "👥 *Multiple Profiles Found*\n\nWho would you like to view details for?",
+    "👥 *Select Profile*\n\nWe found multiple profiles linked to this number. Who would you like to view details for?",
     buttons
   );
 };
 
 const sendMainMenu = async (phone, student) => {
-  const greeting = `👋 *Hi, ${student.parentName}*\n\n🏫 *${student.schoolName}*\n🎓 Student: *${student.studentName}*\n📚 Class: ${student.classGrade}-${student.section}\n\nHow can I help you today?`;
+  const greeting = `👋 *Welcome Back, ${student.parentName}*\n\n🏫 *${student.schoolName}*\n🎓 Student: *${student.studentName}*\n📚 Class: *${student.classGrade}-${student.section}*\n\nHow can we help you today?`;
 
   const buttons = [
     { id: "HOMEWORK", label: "📝 Homework" },
@@ -231,6 +231,7 @@ const sendMainMenu = async (phone, student) => {
 const handleHomeworkFlow = async (phone, user) => {
   // Use today's date (YYYY-MM-DD)
   const today = new Date().toISOString().split('T')[0];
+  const displayDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   const homeworks = await dailyUpdatesService.getHomework(
     user.schoolId,
@@ -250,18 +251,18 @@ const handleHomeworkFlow = async (phone, user) => {
   if (relevantItems.length === 0) {
     await whatsappService.sendWhatsAppMessage(
       phone,
-      `📝 *Homework (${user.classGrade}-${user.section})*\n🏫 ${user.schoolName}\n\n🎉 No homework or remarks for you today!`,
+      `📝 *Homework Updates*\n📅 ${displayDate}\n🏫 ${user.schoolName}\n\n✅ *All caught up!*\nNo homework or remarks for today.`,
       [{ id: "START", label: "🏠 Main Menu" }]
     );
     return;
   }
 
-  let msg = `📝 *Homework & Remarks (${today})*\n🏫 *${user.schoolName}*\n`;
+  let msg = `📝 *Homework & Remarks*\n📅 ${displayDate}\n🏫 *${user.schoolName}*\n`;
 
   relevantItems.forEach(hw => {
     if (hw.type === 'remark') {
       const note = hw.notes ? formatHtmlToWhatsApp(hw.notes) : "";
-      msg += `\n-----------------------------\n`; // Separator
+      msg += `\n────────────────\n`; // Separator
       msg += `💬 *Teacher Remark*`;
       msg += `\n${note}\n`;
       return;
@@ -271,43 +272,44 @@ const handleHomeworkFlow = async (phone, user) => {
     const desc = formatHtmlToWhatsApp(hw.homework);
     const notes = hw.notes ? formatHtmlToWhatsApp(hw.notes) : "";
 
-    msg += `\n-----------------------------\n`; // Separator
+    msg += `\n────────────────\n`; // Separator
     msg += `📌 *${subject}*`;
     msg += `\n${desc}\n`;
 
     if (notes) {
-      msg += `\n💡 *Notes:* \n_${notes}_\n`;
+      msg += `\n💡 _Notes: ${notes}_\n`;
     }
-    // msg += `\n🗓 Due: ${new Date(hw.date).toLocaleDateString()}`; // Date is implicit now
   });
 
-  msg += `\n\n_Reply 'Menu' for more options_`;
+  msg += `\n────────────────\n_Reply 'Start' for Main Menu_`;
 
   await whatsappService.sendWhatsAppMessage(phone, msg);
 };
 
 const handleUpdatesFlow = async (phone, user) => {
   const today = new Date().toISOString().split('T')[0];
+  const displayDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
   const updates = await broadcastService.getAnnouncements(user.schoolId, today);
 
   if (!updates || updates.length === 0) {
     await whatsappService.sendWhatsAppMessage(
       phone,
-      `🔔 *School Updates*\n🏫 ${user.schoolName}\n\nAll caught up! No announcements today.`,
+      `🔔 *School Updates*\n📅 ${displayDate}\n🏫 ${user.schoolName}\n\n✅ *All clear!*\nNo new announcements for today.`,
       [{ id: "START", label: "🏠 Main Menu" }]
     );
     return;
   }
 
-  let msg = `🔔 *Updates for Today*\n🏫 *${user.schoolName}*\n`;
+  let msg = `🔔 *School Announcements*\n📅 ${displayDate}\n🏫 *${user.schoolName}*\n`;
 
   updates.forEach(u => {
     const body = formatHtmlToWhatsApp(u.message);
-    msg += `\n-----------------------------\n`;
-    msg += `📢 *${u.title || 'Announcement'}*\n\n${body}\n\n🕒 ${new Date(u.date).toLocaleDateString()}`;
+    msg += `\n────────────────\n`;
+    msg += `📢 *${u.title || 'Announcement'}*\n\n${body}`;
   });
 
-  msg += `\n\n_Reply 'Menu' for more options_`;
+  msg += `\n────────────────\n_Reply 'Start' for Main Menu_`;
 
   await whatsappService.sendWhatsAppMessage(phone, msg);
 };
