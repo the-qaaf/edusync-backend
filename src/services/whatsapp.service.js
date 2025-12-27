@@ -18,15 +18,17 @@ export const sendWhatsAppMessage = async (to, text, buttons = []) => {
     return { success: false, error: "Missing Credentials" };
   }
 
+  let formattedTo = to.replace(/\D/g, '');
+  if (formattedTo.length === 10) {
+    formattedTo = '91' + formattedTo;
+  }
+
   const payload = {
     messaging_product: "whatsapp",
-    to: to,
+    to: formattedTo,
   };
 
   if (buttons && buttons.length > 0) {
-    // Check if we have a URL button (CTA)
-    // Note: WhatsApp API (v16+) supports 'cta_url' interactive messages.
-    // Limitation: Cannot mix 'cta_url' with 'reply' buttons in the same message.
     const urlButton = buttons.find(b => b.type === 'url' || b.url);
 
     if (urlButton) {
@@ -92,17 +94,22 @@ export const sendWhatsAppMessage = async (to, text, buttons = []) => {
  */
 export const sendTemplateMessage = async (to, templateName, languageCode = "en_US", components = []) => {
   const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  console.log("🚀 ~ sendTemplateMessage ~ token:", token)
+
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  console.log("🚀 ~ sendTemplateMessage ~ phoneId:", phoneId)
 
   if (!token || !phoneId) {
     return { success: false, error: "Missing WhatsApp Credentials" };
   }
 
+  // Format phone number: remove non-digits, prepend 91 if length is 10
+  let formattedTo = to.replace(/\D/g, '');
+  if (formattedTo.length === 10) {
+    formattedTo = '91' + formattedTo;
+  }
+
   const payload = {
     messaging_product: "whatsapp",
-    to: to,
+    to: formattedTo,
     type: "template",
     template: {
       name: templateName,
@@ -110,7 +117,6 @@ export const sendTemplateMessage = async (to, templateName, languageCode = "en_U
       components: components,
     }
   };
-  console.log("🚀 ~ sendTemplateMessage ~ payload:", payload)
 
   try {
     const response = await axios.post(
