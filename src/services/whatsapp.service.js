@@ -103,9 +103,9 @@ export const sendTemplateMessage = async (to, templateName, languageCode = "en_U
     to: to,
     type: "template",
     template: {
-      name: "updates_template_v1",
+      name: templateName,
       language: { code: languageCode },
-      components: components
+      components: components,
     }
   };
 
