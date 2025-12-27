@@ -77,6 +77,7 @@ export const sendWhatsAppMessage = async (to, text, buttons = []) => {
         },
       }
     );
+    console.log("Meta API Response:", JSON.stringify(response.data, null, 2));
     return { success: true, data: response.data };
   } catch (error) {
     const msg = error.response?.data || error.message;
@@ -117,6 +118,7 @@ export const sendTemplateMessage = async (to, templateName, languageCode = "en_U
       components: components,
     }
   };
+  console.log("🚀 ~ sendTemplateMessage ~ payload:", payload)
 
   try {
     const response = await axios.post(
@@ -129,6 +131,7 @@ export const sendTemplateMessage = async (to, templateName, languageCode = "en_U
         },
       }
     );
+    console.log("🚀 ~ sendTemplateMessage ~ response:", response?.data)
     return { success: true, data: response.data };
   } catch (error) {
     const msg = error.response?.data || error.message;
@@ -189,6 +192,7 @@ export const sendBatchWhatsAppMessage = async (recipients, options = {}) => {
     }
   }
 
+  console.log("Batch Send Results:", JSON.stringify(results, null, 2));
   return results;
 };
 
